@@ -1,0 +1,302 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>servidor &mdash; Envio de Comandos Remotos com SSL 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Envio de Comandos Remotos com SSL 1.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">Envio de Comandos Remotos com SSL 1.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for servidor</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c">#coding: utf-8</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Autora: Francielle Costa Salvador</span>
+<span class="sd">    Data: 16/10/2012</span>
+<span class="sd">    Trabalho final do curso de &quot;Python para Administradores de Redes Linux&quot;.</span>
+
+<span class="sd">    Um Programa para execução de comandos remotos em diversos hosts</span>
+<span class="sd">    simultaneamente. Útil para atualizações e instalação de pacotes nas várias</span>
+<span class="sd">    máquinas de um laboratório. A comunicação com os hosts remotos (IPs</span>
+<span class="sd">    definidos no arquivo de configuração - &quot;settings.py&quot;) é realizada através</span>
+<span class="sd">    de uma conexão SSL criptografada com autenticação. Deve ser enviado um</span>
+<span class="sd">    comando individual via linha de comando ou ser informado um arquivo com</span>
+<span class="sd">    uma série de comandos. O retorno dos comandos de cada host serão</span>
+<span class="sd">    armazenados num arquivo a medida que forem executados.</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">settings</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">ssl</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Thread</span>
+<span class="kn">from</span> <span class="nn">Queue</span> <span class="kn">import</span> <span class="n">Queue</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+
+
+<span class="c">#Número máximo de Threads</span>
+<span class="n">MAX</span> <span class="o">=</span> <span class="mi">50</span>
+
+
+<span class="k">def</span> <span class="nf">valida_ip</span><span class="p">(</span><span class="n">ip</span><span class="p">):</span>
+    <span class="n">ipRegex</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="s">r&#39;^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ipRegex</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">ip</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+
+<div class="viewcode-block" id="ssh"><a class="viewcode-back" href="../documentacao.html#servidor.ssh">[docs]</a><span class="k">def</span> <span class="nf">ssh</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">,</span> <span class="n">diretorio</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Esta função recebe um IP, uma lista de comandos e duas filas. A</span>
+<span class="sd">        função envia todos os comandos para o IP desejado e retorna os</span>
+<span class="sd">        resultados.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">ip</span> <span class="o">=</span> <span class="n">f1</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+            <span class="n">ssl_sock</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">wrap_socket</span><span class="p">(</span>
+                <span class="n">s</span><span class="p">,</span> <span class="n">ca_certs</span><span class="o">=</span><span class="s">&#39;cert.pem&#39;</span><span class="p">,</span> <span class="n">cert_reqs</span><span class="o">=</span><span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span><span class="p">)</span>
+            <span class="n">ssl_sock</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">ssl_sock</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="n">ip</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">PORTACLIENTE</span><span class="p">))</span>
+            <span class="n">ssl_sock</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+
+            <span class="c">#Transformar a lista de comandos em string para ser enviada</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+            <span class="c">#Enviando os comandos</span>
+            <span class="n">cont</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">cont</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
+                <span class="n">ssl_sock</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">cmd</span><span class="p">[</span><span class="n">cont</span><span class="p">:</span><span class="n">cont</span> <span class="o">+</span> <span class="mi">1024</span><span class="p">])</span>
+                <span class="n">cont</span> <span class="o">+=</span> <span class="mi">1024</span>
+
+            <span class="n">ssl_sock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+            <span class="c">#Se foi estabelecida a conexão e os comandos foram enviados</span>
+            <span class="c">#Coloca o IP na fila dos que terão que retornar os resultados</span>
+            <span class="n">f2</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">ip</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">arqlog</span> <span class="o">=</span> <span class="s">&#39;{0} {1}.log&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+                    <span class="s">&#39;</span><span class="si">%d</span><span class="s">-%m-%Y_%H-%M-%S&#39;</span><span class="p">))</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;{0}/{1}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diretorio</span><span class="p">,</span> <span class="n">arqlog</span><span class="p">),</span> <span class="s">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">arq</span><span class="p">:</span>
+                    <span class="n">arq</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;&#39;&#39;**** Cliente {0} ****</span><span class="se">\n</span><span class="s"></span>
+<span class="s">                    Não foi possível estabelecer conexão!</span>
+<span class="s">                    </span><span class="se">\n</span><span class="s">Erro : {1}&#39;&#39;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
+
+            <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Houve um erro ao criar arquivo de Log!</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">f1</span><span class="o">.</span><span class="n">task_done</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="ssh_resultado"><a class="viewcode-back" href="../documentacao.html#servidor.ssh_resultado">[docs]</a><span class="k">def</span> <span class="nf">ssh_resultado</span><span class="p">(</span><span class="n">f2</span><span class="p">,</span> <span class="n">diretorio</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Esta função abre uma conexão para receber os resultados dos comandos</span>
+<span class="sd">        executados nos &quot;clientes&quot;.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">print</span> <span class="s">&#39;Aguardando respostas dos &quot;clientes&quot; ... </span><span class="se">\n\n</span><span class="s">&#39;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">SOL_SOCKET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SO_REUSEADDR</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">SOL_SOCKET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SO_KEEPALIVE</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">PORTASERVIDOR</span><span class="p">))</span>
+
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">listen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">novo_sock</span><span class="p">,</span> <span class="n">info_cli</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>
+            <span class="n">con_ssl</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">wrap_socket</span><span class="p">(</span>
+                <span class="n">novo_sock</span><span class="p">,</span> <span class="n">server_side</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">certfile</span><span class="o">=</span><span class="s">&quot;cert.pem&quot;</span><span class="p">,</span>
+                <span class="n">keyfile</span><span class="o">=</span><span class="s">&quot;cert.pem&quot;</span><span class="p">,</span> <span class="n">ssl_version</span><span class="o">=</span><span class="n">ssl</span><span class="o">.</span><span class="n">PROTOCOL_TLSv1</span><span class="p">)</span>
+
+            <span class="n">ip_cliente</span> <span class="o">=</span> <span class="n">info_cli</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">arqlog</span> <span class="o">=</span> <span class="s">&#39;{0} {1}.log&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ip_cliente</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+                <span class="s">&#39;</span><span class="si">%d</span><span class="s">-%m-%Y_%H-%M-%S&#39;</span><span class="p">))</span>
+            <span class="n">arq</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;{0}/{1}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diretorio</span><span class="p">,</span> <span class="n">arqlog</span><span class="p">),</span> <span class="s">&#39;wb&#39;</span><span class="p">)</span>
+
+            <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">dados</span> <span class="o">=</span> <span class="n">con_ssl</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">dados</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">arq</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dados</span><span class="p">)</span>
+
+            <span class="n">arq</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+            <span class="n">f2</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="n">f2</span><span class="o">.</span><span class="n">task_done</span><span class="p">()</span>
+
+        <span class="n">con_ssl</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">SHUT_RDWR</span><span class="p">)</span>
+        <span class="n">con_ssl</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Erro: {0}</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+</div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">group</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_mutually_exclusive_group</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s">&#39;-c&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;Enviar um único comando via linha de comando&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&#39;cmd&#39;</span><span class="p">)</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s">&#39;-a&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;Enviar um arquivo com uma série de comandos&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&#39;arq&#39;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="c">#Cria a fila que vai receber todos os IPs válidos e tentar conectar</span>
+    <span class="c">#Se conectar vai enviar os comandos para o IP e adicionar o IP na fila2</span>
+    <span class="n">fila1</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+    <span class="c">#Cria a fila que vai receber os IPs dos quais o &quot;servidor&quot; espera a</span>
+    <span class="c">#resposta para saber os resultados dos comandos</span>
+    <span class="n">fila2</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c">#Verifica se o usuário passou um arquivo ou um único comando</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">arq</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c">#Ler o arquivo com os comandos e os passa para uma lista</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">arq</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">arq</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">arq</span><span class="o">.</span><span class="n">readlines</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Houve um erro ao abrir o arquivo desejado!</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c">#Adiciona o único comando numa lista</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">cmd</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c">#Crie a pasta onde ficarão os Logs recebidos</span>
+        <span class="n">caminho</span> <span class="o">=</span> <span class="s">&#39;LogSSH {0}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+            <span class="s">&#39;</span><span class="si">%d</span><span class="s">-%m-%Y_%H-%M-%S&#39;</span><span class="p">))</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">caminho</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Houve um erro ao criar pasta de Logs!</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+    <span class="c">#Coloca os IPs válidos dentro da fila1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">settings</span><span class="o">.</span><span class="n">IP</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">valida_ip</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+            <span class="n">fila1</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">arqlog</span> <span class="o">=</span> <span class="s">&#39;{0} {1}.log&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+                    <span class="s">&#39;</span><span class="si">%d</span><span class="s">-%m-%Y_%H-%M-%S&#39;</span><span class="p">))</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">&#39;{0}/{1}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">caminho</span><span class="p">,</span> <span class="n">arqlog</span><span class="p">),</span> <span class="s">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">arq</span><span class="p">:</span>
+                    <span class="n">arq</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;IP inválido : {0} !!!&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+            <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Houve um erro ao criar arquivo de Log!</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+    <span class="c">#Executa as threads para enviar os comandos</span>
+    <span class="k">print</span> <span class="s">&#39;Tentativa de conexão nos &quot;clientes&quot; ...</span><span class="se">\n\n</span><span class="s">&#39;</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">MAX</span><span class="p">):</span>
+        <span class="n">worker</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">ssh</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">fila1</span><span class="p">,</span> <span class="n">fila2</span><span class="p">,</span> <span class="n">caminho</span><span class="p">))</span>
+        <span class="n">worker</span><span class="o">.</span><span class="n">setDaemon</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">worker</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="c">#Executa uma thread para chamar a função que pega o resultado retornado</span>
+    <span class="n">worker</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">ssh_resultado</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">fila2</span><span class="p">,</span> <span class="n">caminho</span><span class="p">))</span>
+    <span class="n">worker</span><span class="o">.</span><span class="n">setDaemon</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">worker</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="n">fila1</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="n">fila2</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">Envio de Comandos Remotos com SSL 1.0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Francielle Costa Salvador.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

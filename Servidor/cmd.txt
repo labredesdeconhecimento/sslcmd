@@ -1,0 +1,5 @@
+ls -la
+kfdj  kfsdf
+
+echo "Gato"; echo "Persa"
+ifconfig
