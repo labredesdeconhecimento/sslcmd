@@ -1,0 +1,177 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Documentação do programa Envio de Comandos Remotos com SSL &mdash; Envio de Comandos Remotos com SSL 1.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Envio de Comandos Remotos com SSL 1.0.0 documentation" href="index.html" />
+    <link rel="prev" title="Welcome to Envio de Comandos Remotos com SSL’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to Envio de Comandos Remotos com SSL’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Envio de Comandos Remotos com SSL 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="documentacao-do-programa-envio-de-comandos-remotos-com-ssl">
+<h1>Documentação do programa Envio de Comandos Remotos com SSL<a class="headerlink" href="#documentacao-do-programa-envio-de-comandos-remotos-com-ssl" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-servidor">
+<span id="servidor"></span><h2>Servidor<a class="headerlink" href="#module-servidor" title="Permalink to this headline">¶</a></h2>
+<p>Autora: Francielle Costa Salvador
+Data: 16/10/2012
+Trabalho final do curso de &#8220;Python para Administradores de Redes Linux&#8221;.</p>
+<p>Um Programa para execução de comandos remotos em diversos hosts
+simultaneamente. Útil para atualizações e instalação de pacotes nas várias
+máquinas de um laboratório. A comunicação com os hosts remotos (IPs
+definidos no arquivo de configuração - &#8220;settings.py&#8221;) é realizada através
+de uma conexão SSL criptografada com autenticação. Deve ser enviado um
+comando individual via linha de comando ou ser informado um arquivo com
+uma série de comandos. O retorno dos comandos de cada host serão
+armazenados num arquivo a medida que forem executados.</p>
+<dl class="function">
+<dt id="servidor.ssh">
+<tt class="descclassname">servidor.</tt><tt class="descname">ssh</tt><big>(</big><em>cmd</em>, <em>f1</em>, <em>f2</em>, <em>diretorio</em><big>)</big><a class="reference internal" href="_modules/servidor.html#ssh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#servidor.ssh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Esta função recebe um IP, uma lista de comandos e duas filas. A
+função envia todos os comandos para o IP desejado e retorna os
+resultados.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="servidor.ssh_resultado">
+<tt class="descclassname">servidor.</tt><tt class="descname">ssh_resultado</tt><big>(</big><em>f2</em>, <em>diretorio</em><big>)</big><a class="reference internal" href="_modules/servidor.html#ssh_resultado"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#servidor.ssh_resultado" title="Permalink to this definition">¶</a></dt>
+<dd><p>Esta função abre uma conexão para receber os resultados dos comandos
+executados nos &#8220;clientes&#8221;.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-cliente">
+<span id="cliente"></span><h2>Cliente<a class="headerlink" href="#module-cliente" title="Permalink to this headline">¶</a></h2>
+<p>Autora: Francielle Costa Salvador
+Data: 16/10/2012
+Trabalho final do curso de &#8220;Python para Administradores de Redes Linux&#8221;.</p>
+<p>Um Programa para execução de comandos remotos em diversos hosts
+simultaneamente. Útil para atualizações e instalação de pacotes nas várias
+máquinas de um laboratório. A comunicação com os hosts remotos (IPs
+definidos no arquivo de configuração - &#8220;settings.py&#8221;) é realizada através
+de uma conexão SSL criptografada com autenticação. Deve ser enviado um
+comando individual via linha de comando ou ser informado um arquivo com
+uma série de comandos. O retorno dos comandos de cada host serão
+armazenados num arquivo a medida que forem executados.</p>
+<dl class="function">
+<dt id="cliente.ssh">
+<tt class="descclassname">cliente.</tt><tt class="descname">ssh</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/cliente.html#ssh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cliente.ssh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Esta função aceita uma conexão onde serão passados os comandos a serem
+executados. Após executar os comandos localmente, outra função será
+chamada para que os resultados sejam retornados.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="cliente.ssh_resultado">
+<tt class="descclassname">cliente.</tt><tt class="descname">ssh_resultado</tt><big>(</big><em>ip</em>, <em>arqlog</em><big>)</big><a class="reference internal" href="_modules/cliente.html#ssh_resultado"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cliente.ssh_resultado" title="Permalink to this definition">¶</a></dt>
+<dd><p>Esta função solicita uma conexão com o &#8220;servidor&#8221; para enviar o(s)
+resultado(s) do(s) comando(s) executado(s) no &#8220;cliente&#8221;. Ela recebe
+como argumentos o IP (para o qual deve retornar os resultados) e o nome
+do arquivo de Log.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Documentação do programa Envio de Comandos Remotos com SSL</a><ul>
+<li><a class="reference internal" href="#module-servidor">Servidor</a></li>
+<li><a class="reference internal" href="#module-cliente">Cliente</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to Envio de Comandos Remotos com SSL&#8217;s documentation!</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/documentacao.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to Envio de Comandos Remotos com SSL’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">Envio de Comandos Remotos com SSL 1.0.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Francielle Costa Salvador.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
